@@ -44,8 +44,8 @@ end
 
 #region-> Value of Arguments for Debugging
       # Q_whb = vcat(1.0*ones(10,1), ones(10,1), 1.0*ones(10,1)) *1.2539999996092727e6
-      Q_whb = vcat(1.0*ones(10,1), 1.2*ones(10,1), 0.8*ones(10,1), 0.8*ones(20,1)) *1.254e6
-      Tf = 50.0
+      Q_whb = vcat(1.0*ones(10,1), 1.2*ones(10,1), 0.8*ones(10,1)) *1.254e6
+      Tf = 30.0
       (ns, np) = (1,1)
 #endregion
 
@@ -68,7 +68,7 @@ end
       NCP = 3
 
 ##* Defining Solver
-      model1 = Model(with_optimizer(Ipopt.Optimizer, print_level=3 ))
+      model1 = Model(with_optimizer(Ipopt.Optimizer, print_level=5 , max_iter = 1500))
 
       #region -> Variables and Objective
             ## Declare Variables
@@ -148,14 +148,21 @@ end
                   end
 
                   #!For degugging
-                  for nfe in 1:NFE
+                  for nfe in 1:NFE, ncp in 1:NCP
                         # fix(u[1,nfe], 0.2, force=true)      #q_whb at
                         # fix(u[2,nfe], 0.0, force=true)      #q_a
                         # fix(u[3,nfe], 0.0, force=true)      #q_b
+                        fix(z[1,nfe,ncp], 0.0, force = true)
+
+
+                  end
+                  for nfe in 1:Int(NFE/3)
+                        # fix(u[3,nfe], 0.0, force=true)      #q_b
                   end
 
+
             # Objective
-            @NLobjective(model1, Min, sum( u[4,nfe]^2       + u[2,nfe]*u[3,nfe]     for nfe in 1:NFE) )  #Duty in KJ
+            @NLobjective(model1, Min, sum( u[4,nfe]^2       + 1e0*u[2,nfe]*u[3,nfe]    + (1e-2)*u[2,nfe]^2  + (1e-2)*u[3,nfe]^2    for nfe in 1:NFE) )  #Duty in KJ
 
       #endregion
 
@@ -182,7 +189,8 @@ end
 
       @NLconstraints(model1, begin
             #?Defining any Inequality Constraints in each line
-            Constr_Ineq1[nfe in 1:NFE, ncp in 1:NCP], T_phb[nfe, ncp] >= T_dh_minSup
+            [nfe in 1:NFE, ncp in 1:NCP], T_dh_minSup <= T_phb[nfe, ncp] <= 70.0
+            
             #In case of more states - pattern
             #Constr_Ineq999[nfe=1:NFE, ncp=1:NCP], alg[999,nfe,ncp] ==
       end)
